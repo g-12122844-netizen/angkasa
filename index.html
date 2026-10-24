@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Maze Quest: Makmal Angkasa</title>
+    <style>
+        /* Tetapan asas untuk membuang margin dan menghalang scroll pada telefon */
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: none; /* Penting untuk mengelak scroll tidak sengaja */
+        }
+
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Skrin UI Overlay */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Membenarkan klik tembus ke canvas kecuali pada elemen berinteraksi */
+        }
+
+        /* Skrin Mula */
+        #start-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 20, 40, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            pointer-events: auto;
+            z-index: 10;
+        }
+
+        h1 { font-size: 2.5rem; margin-bottom: 10px; text-shadow: 0 0 10px #00d2ff; text-align: center;}
+        .instructions { background: rgba(255, 255, 255, 0.1); padding: 20px; border-radius: 10px; margin-bottom: 20px; text-align: center; max-width: 80%;}
+        
+        button.btn-primary {
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: white;
+            background: linear-gradient(45deg, #00d2ff, #3a7bd5);
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0, 210, 255, 0.4);
+            transition: transform 0.2s;
+        }
+        button.btn-primary:active { transform: scale(0.95); }
+
+        /* UI Dalam Permainan */
+        #game-ui {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+        }
+
+        /* Joystick (Telefon) */
+        #joystick-zone {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            pointer-events: auto;
+            display: none; /* Ditunjukkan jika di peranti mudah alih */
+        }
+        #joystick-knob {
+            position: absolute;
+            top: 35px; left: 35px;
+            width: 50px; height: 50px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        /* Zon Kawalan Kamera (Telefon) */
+        #camera-zone {
+            position: absolute;
+            top: 0; right: 0;
+            width: 50%; height: 100%;
+            pointer-events: auto;
+        }
+
+        /* Butang Interaksi */
+        #action-btn {
+            position: absolute;
+            bottom: 40px;
+            right: 40px;
+            width: 80px; height: 80px;
+            background: rgba(255, 165, 0, 0.8);
+            border: 3px solid white;
+            border-radius: 50%;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            pointer-events: auto;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(255, 165, 0, 0.5);
+            user-select: none;
+        }
+        #action-btn:active { background: rgba(255, 140, 0, 1); transform: scale(0.95); }
+
+        /* Mesej Dialog */
+        #dialog-box {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: #00d2ff;
+            padding: 15px 30px;
+            border: 2px solid #00d2ff;
+            border-radius: 10px;
+            font-size: 1.2rem;
+            display: none;
+            text-align: center;
+            pointer-events: auto;
+            z-index: 5;
+        }
+
+        /* UI Kuiz */
+        #quiz-ui {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(10, 20, 40, 0.95);
+            border: 2px solid #00d2ff;
+            border-radius: 10px;
+            padding: 20px;
+            color: white;
+            text-align: center;
+            display: none;
+            z-index: 20;
+            pointer-events: auto;
+            width: 80%;
+            max-width: 400px;
+        }
+        #quiz-ui h2 { margin-top: 0; font-size: 1.2rem; margin-bottom: 15px; }
+        .quiz-btn {
+            background: #3a7bd5; color: white; border: 1px solid #00d2ff; padding: 12px; margin: 5px 0; width: 100%; border-radius: 5px; cursor: pointer; font-size: 1rem; font-weight: bold;
+        }
+        .quiz-btn:active { transform: scale(0.95); }
+        
+        /* Skrin Kemenangan Dramatik */
+        #victory-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(5, 10, 25, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            text-align: center;
+            z-index: 50;
+            pointer-events: auto;
+            opacity: 0;
+            transition: opacity 2s ease-in-out;
+        }
+        .glow-text {
+            color: #00ff00;
+            font-size: 3.5rem;
+            text-shadow: 0 0 20px #00ff00, 0 0 40px #00ff00;
+            margin-bottom: 10px;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        /* Media Query untuk memaparkan joystick pada skrin sentuh */
+        @media (hover: none) and (pointer: coarse) {
+            #joystick-zone { display: block; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-layer">
+        <!-- Skrin Pengenalan -->
+        <div id="start-screen">
+            <h1>Makmal Batuan Angkasa</h1>
+            <div class="instructions">
+                <p><strong>Komputer:</strong> WASD/Anak Panah untuk bergerak. Klik & Seret untuk pusing kamera.</p>
+                <p><strong>Telefon:</strong> Joystick kiri untuk bergerak. Sapu kanan skrin untuk kamera.</p>
+                <p>Uji sistem pergerakan dan tekan 'PERIKSA' berhampiran kotak bercahaya.</p>
+            </div>
+            <button class="btn-primary" id="start-btn">MULA MISI</button>
+        </div>
+
+        <!-- UI Dalam Permainan -->
+        <div id="game-ui">
+            <div id="camera-zone"></div>
+            <div id="joystick-zone">
+                <div id="joystick-knob"></div>
+            </div>
+            <div id="action-btn">PERIKSA</div>
+            <div id="dialog-box" id="message-text">Sistem interaksi berfungsi!</div>
+            
+            <!-- Panel Kuiz -->
+            <div id="quiz-ui">
+                <h2 id="quiz-question">Soalan Semasa</h2>
+                <div id="quiz-options"></div>
+                <p id="quiz-feedback" style="margin-top:15px; font-weight:bold;"></p>
+                <button id="quiz-close" class="btn-primary" style="display:none; margin-top:15px; font-size: 1rem; padding: 10px 20px;">Sambung Misi</button>
+            </div>
+        </div>
+
+        <!-- Skrin Kemenangan (Asalnya Tersembunyi) -->
+        <div id="victory-screen" style="display: none;">
+            <h1 class="glow-text">MISI SELESAI</h1>
+            <p style="font-size:1.2rem; max-width:600px; margin-bottom: 20px;">Tahniah Komander! Data klasifikasi telah selamat dihantar ke Bumi:</p>
+            <ul style="text-align: left; font-size: 1.1rem; color: #00d2ff; background: rgba(0,0,0,0.5); padding: 20px; border-radius: 10px; list-style: none;">
+                <li style="margin-bottom: 10px;">☄️ <strong>Asteroid:</strong> Batuan dari Lingkaran Asteroid</li>
+                <li style="margin-bottom: 10px;">🧊 <strong>Komet:</strong> Bebola ais dan gas yang membentuk ekor</li>
+                <li>🪨 <strong>Meteoroid:</strong> Serpihan batuan terapung di angkasa</li>
+            </ul>
+            <button class="btn-primary" onclick="location.reload()" style="margin-top:30px;">KEMBALI KE PANGKALAN</button>
+        </div>
+    </div>
+
+    <!-- Memuatkan Three.js dari CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        // --- TETAPAN ASAS THREE.JS ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x111122);
+        scene.fog = new THREE.Fog(0x111122, 10, 50); // Tambah kabus angkasa sikit
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        container.appendChild(renderer.domElement);
+
+        // --- PENCAHAYAAN ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(10, 20, 10);
+        dirLight.castShadow = true;
+        scene.add(dirLight);
+
+        // --- KUMPULAN PERLANGGARAN (COLLISION) ---
+        const collidableObjects = [];
+
+        // --- MEMBINA MAKMAL (LANTAI & DINDING) ---
+        const floorGeo = new THREE.PlaneGeometry(40, 80);
+        const floorMat = new THREE.MeshStandardMaterial({ color: 0x334455, roughness: 0.8 });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.z = -20; // Anjak lantai untuk memanjangkan makmal
+        floor.receiveShadow = true;
+        scene.add(floor);
+
+        const wallMat = new THREE.MeshStandardMaterial({ color: 0x556677 });
+        function createWall(w, h, d, x, y, z) {
+            const geo = new THREE.BoxGeometry(w, h, d);
+            const wall = new THREE.Mesh(geo, wallMat);
+            wall.position.set(x, y, z);
+            wall.castShadow = true;
+            wall.receiveShadow = true;
+            scene.add(wall);
+            collidableObjects.push(wall);
+        }
+
+        // Dinding bilik makmal yang dipanjangkan (2 sektor)
+        createWall(40, 10, 2, 0, 5, 20);  // Dinding Depan
+        createWall(2, 10, 80, -20, 5, -20); // Dinding Kiri (Panjang)
+        createWall(2, 10, 80, 20, 5, -20);  // Dinding Kanan (Panjang)
+        createWall(40, 10, 2, 0, 5, -60); // Dinding Belakang Akhir (Pintu Keluar)
+
+        // Pintu Terkunci 1 (Antara Sektor 1 dan 2)
+        const doorGeo = new THREE.BoxGeometry(8, 10, 2.5);
+        const doorMat = new THREE.MeshStandardMaterial({ color: 0xff0000 }); // Merah = Terkunci
+        const door = new THREE.Mesh(doorGeo, doorMat);
+        door.position.set(0, 5, -19.5); 
+        scene.add(door);
+        collidableObjects.push(door);
+
+        // Pintu Tamat Misi (Keluar Makmal)
+        const finalDoorMat = new THREE.MeshStandardMaterial({ color: 0xff00ff }); // Ungu = Keluar
+        const finalDoor = new THREE.Mesh(doorGeo, finalDoorMat);
+        finalDoor.position.set(0, 5, -59.5);
+        scene.add(finalDoor);
+        collidableObjects.push(finalDoor);
+
+        // --- BINTANG DI LUAR MAKMAL (ENDING) ---
+        const starsGeo = new THREE.BufferGeometry();
+        const starsCount = 600;
+        const posArray = new Float32Array(starsCount * 3);
+        for(let i=0; i<starsCount*3; i+=3) {
+            posArray[i] = (Math.random() - 0.5) * 100; // X
+            posArray[i+1] = (Math.random() - 0.5) * 50 + 10; // Y
+            posArray[i+2] = -65 - Math.random() * 100; // Z (Di belakang makmal)
+        }
+        starsGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        const starsMat = new THREE.PointsMaterial({size: 0.2, color: 0xffffff, transparent: true, opacity: 0.8});
+        const starMesh = new THREE.Points(starsGeo, starsMat);
+        scene.add(starMesh);
+
+        // --- WATAK PEMAIN ---
+        const playerGeo = new THREE.BoxGeometry(1.5, 3, 1.5);
+        const playerMat = new THREE.MeshStandardMaterial({ color: 0x00d2ff });
+        const player = new THREE.Mesh(playerGeo, playerMat);
+        player.position.y = 1.5;
+        player.castShadow = true;
+        scene.add(player);
+
+        // --- OBJEK INTERAKSI (SAMPEL BATUAN 1) ---
+        const interactGeo = new THREE.DodecahedronGeometry(1.2);
+        const interactMat = new THREE.MeshStandardMaterial({ color: 0x888888, emissive: 0x222222, roughness: 0.9 });
+        const interactObj = new THREE.Mesh(interactGeo, interactMat);
+        interactObj.position.set(5, 1.5, -10);
+        interactObj.castShadow = true;
+        scene.add(interactObj);
+
+        // --- OBJEK INTERAKSI 2 (KOMET) ---
+        const interactMat2 = new THREE.MeshStandardMaterial({ color: 0x00ffff, emissive: 0x004444, roughness: 0.2 });
+        const interactObj2 = new THREE.Mesh(interactGeo, interactMat2);
+        interactObj2.position.set(-8, 1.5, -35); // Dalam sektor kedua
+        interactObj2.castShadow = true;
+        scene.add(interactObj2);
+
+        // --- OBJEK INTERAKSI 3 (METEOROID) ---
+        const interactMat3 = new THREE.MeshStandardMaterial({ color: 0x8b4513, emissive: 0x221100, roughness: 1.0 });
+        const interactObj3 = new THREE.Mesh(interactGeo, interactMat3);
+        interactObj3.position.set(10, 1.5, -45); // Dalam sektor kedua
+        interactObj3.castShadow = true;
+        scene.add(interactObj3);
+
+        // --- PEMBOLEH UBAH KAWALAN & KAMERA ---
+        let isGameRunning = false;
+        const playerSpeed = 8;
+        const keys = { w: false, a: false, s: false, d: false, ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+        let joystickInput = { x: 0, y: 0 };
+        
+        let cameraAngleX = 0; // Sudut putaran (Kiri/Kanan)
+        let cameraAngleY = 0.3; // Sudut dongak (Atas/Bawah)
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
+
+        // --- LOGIK INPUT KOMPUTER (PAPAN KEKUNCI) ---
+        window.addEventListener('keydown', (e) => { if(keys.hasOwnProperty(e.key)) keys[e.key] = true; });
+        window.addEventListener('keyup', (e) => { if(keys.hasOwnProperty(e.key)) keys[e.key] = false; });
+
+        // --- LOGIK INPUT TETIKUS (KAMERA KOMPUTER) ---
+        window.addEventListener('mousedown', (e) => {
+            if(e.target.id === 'action-btn' || e.target.id === 'start-btn') return;
+            isDragging = true;
+            previousMousePosition = { x: e.clientX, y: e.clientY };
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (isDragging && isGameRunning) {
+                const deltaMove = { x: e.clientX - previousMousePosition.x, y: e.clientY - previousMousePosition.y };
+                cameraAngleX -= deltaMove.x * 0.005;
+                cameraAngleY -= deltaMove.y * 0.005;
+                cameraAngleY = Math.max(-0.5, Math.min(1.5, cameraAngleY)); // Hadkan dongakan
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            }
+        });
+        window.addEventListener('mouseup', () => isDragging = false);
+
+        // --- LOGIK INPUT TELEFON (SENTUH) ---
+        const camZone = document.getElementById('camera-zone');
+        let activeCamTouchId = null;
+        let lastTouchPos = { x: 0, y: 0 };
+
+        camZone.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if(activeCamTouchId === null) {
+                const touch = e.changedTouches[0];
+                activeCamTouchId = touch.identifier;
+                lastTouchPos = { x: touch.clientX, y: touch.clientY };
+            }
+        }, {passive: false});
+
+        camZone.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            for(let i=0; i<e.changedTouches.length; i++) {
+                if(e.changedTouches[i].identifier === activeCamTouchId && isGameRunning) {
+                    const touch = e.changedTouches[i];
+                    const deltaX = touch.clientX - lastTouchPos.x;
+                    const deltaY = touch.clientY - lastTouchPos.y;
+                    cameraAngleX -= deltaX * 0.005;
+                    cameraAngleY -= deltaY * 0.005;
+                    cameraAngleY = Math.max(-0.5, Math.min(1.5, cameraAngleY));
+                    lastTouchPos = { x: touch.clientX, y: touch.clientY };
+                }
+            }
+        }, {passive: false});
+
+        const endCamTouch = (e) => {
+            for(let i=0; i<e.changedTouches.length; i++) {
+                if(e.changedTouches[i].identifier === activeCamTouchId) activeCamTouchId = null;
+            }
+        };
+        camZone.addEventListener('touchend', endCamTouch);
+        camZone.addEventListener('touchcancel', endCamTouch);
+
+        // --- LOGIK JOYSTICK MAYA ---
+        const joyZone = document.getElementById('joystick-zone');
+        const joyKnob = document.getElementById('joystick-knob');
+        let activeJoyTouchId = null;
+        let joyCenter = { x: 0, y: 0 };
+        const maxJoyRadius = 35;
+
+        joyZone.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if(activeJoyTouchId === null) {
+                const touch = e.changedTouches[0];
+                activeJoyTouchId = touch.identifier;
+                const rect = joyZone.getBoundingClientRect();
+                joyCenter = { x: rect.left + rect.width/2, y: rect.top + rect.height/2 };
+                updateJoystick(touch.clientX, touch.clientY);
+            }
+        }, {passive: false});
+
+        joyZone.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            for(let i=0; i<e.changedTouches.length; i++) {
+                if(e.changedTouches[i].identifier === activeJoyTouchId) {
+                    updateJoystick(e.changedTouches[i].clientX, e.changedTouches[i].clientY);
+                }
+            }
+        }, {passive: false});
+
+        const resetJoystick = (e) => {
+            for(let i=0; i<e.changedTouches.length; i++) {
+                if(e.changedTouches[i].identifier === activeJoyTouchId) {
+                    activeJoyTouchId = null;
+                    joyKnob.style.transform = `translate(0px, 0px)`;
+                    joystickInput = { x: 0, y: 0 };
+                }
+            }
+        };
+        joyZone.addEventListener('touchend', resetJoystick);
+        joyZone.addEventListener('touchcancel', resetJoystick);
+
+        function updateJoystick(clientX, clientY) {
+            let dx = clientX - joyCenter.x;
+            let dy = clientY - joyCenter.y;
+            const distance = Math.sqrt(dx*dx + dy*dy);
+            
+            if(distance > maxJoyRadius) {
+                dx = (dx / distance) * maxJoyRadius;
+                dy = (dy / distance) * maxJoyRadius;
+            }
+            joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+            
+            // Normalize nilai input -1 hingga 1
+            joystickInput.x = dx / maxJoyRadius;
+            joystickInput.y = dy / maxJoyRadius;
+        }
+
+        // --- LOGIK INTERAKSI BUTANG ---
+        document.getElementById('start-btn').addEventListener('click', () => {
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('game-ui').style.display = 'block';
+            isGameRunning = true;
+        });
+
+        // Pembolehubah status kuiz
+        let asteroidSelesai = false;
+        let kometSelesai = false;
+        let meteoroidSelesai = false;
+        let currentQuiz = 0; // 1=Asteroid, 2=Komet, 3=Meteoroid
+        let isCinematic = false; // Untuk mod ending dramatik
+
+        document.getElementById('action-btn').addEventListener('click', () => {
+            if(!isGameRunning) return;
+            // Kira jarak antara pemain dan semua objek interaktif
+            const dist1 = player.position.distanceTo(interactObj.position);
+            const dist2 = player.position.distanceTo(interactObj2.position);
+            const dist3 = player.position.distanceTo(interactObj3.position);
+            const distExit = player.position.distanceTo(finalDoor.position);
+            
+            if(dist1 < 5) {
+                if(asteroidSelesai) {
+                    showDialog("Sampel Asteroid ini telah dianalisis.");
+                    return;
+                }
+                currentQuiz = 1;
+                bukaKuiz(
+                    "DATA SAMPEL 1:\nBatuan ini bersaiz besar, terdiri daripada batuan dan logam, serta dijumpai di kawasan antara orbit Marikh dan Musytari. Apakah pengkelasan yang tepat?",
+                    [{ teks: "Komet", betul: false }, { teks: "Asteroid", betul: true }, { teks: "Meteoroid", betul: false }]
+                );
+            } else if(dist2 < 5) {
+                if(kometSelesai) {
+                    showDialog("Sampel Komet ini telah dianalisis.");
+                    return;
+                }
+                currentQuiz = 2;
+                bukaKuiz(
+                    "DATA SAMPEL 2:\nBatuan ini terdiri daripada ais, gas, dan debu beku. Ia membentuk ekor yang panjang dan bercahaya apabila menghampiri Matahari. Apakah ini?",
+                    [{ teks: "Komet", betul: true }, { teks: "Asteroid", betul: false }, { teks: "Meteoroid", betul: false }]
+                );
+            } else if(dist3 < 5) {
+                if(meteoroidSelesai) {
+                    showDialog("Sampel Meteoroid ini telah dianalisis.");
+                    return;
+                }
+                currentQuiz = 3;
+                bukaKuiz(
+                    "DATA SAMPEL 3:\nSerpihan batu atau logam kecil yang terapung di ruang angkasa. Jika ia memasuki atmosfera Bumi, ia akan terbakar. Apakah namanya di ruang angkasa?",
+                    [{ teks: "Meteor", betul: false }, { teks: "Meteorit", betul: false }, { teks: "Meteoroid", betul: true }]
+                );
+            } else if (distExit < 5) {
+                if (asteroidSelesai && kometSelesai && meteoroidSelesai) {
+                    showDialog("AKSES DILULUSKAN: Melancarkan Protokol Penamat...");
+                    finalDoor.material.color.setHex(0x00ff00);
+                    finalDoor.position.y = -10; // Buka pintu tamat
+                    
+                    // Buang pintu dari sistem perlanggaran
+                    const index = collidableObjects.indexOf(finalDoor);
+                    if (index > -1) collidableObjects.splice(index, 1);
+
+                    // Mulakan sinematik selepas 1 saat
+                    setTimeout(() => {
+                        isCinematic = true;
+                        isGameRunning = false; // Hentikan kawalan pemain
+                        document.getElementById('game-ui').style.display = 'none';
+                        
+                        // Tunjukkan skrin kemenangan dengan kesan fade in selepas 3 saat
+                        setTimeout(() => {
+                            const victoryScreen = document.getElementById('victory-screen');
+                            victoryScreen.style.display = 'flex';
+                            setTimeout(() => { victoryScreen.style.opacity = '1'; }, 50);
+                        }, 3000);
+                    }, 1000);
+                } else {
+                    showDialog("Pintu Utama Terkunci. Analisis semua 3 sampel (Asteroid, Komet, Meteoroid) dahulu.");
+                }
+            } else {
+                showDialog("Jalan lebih dekat dengan sampel batuan atau pintu untuk memeriksanya.");
+            }
+        });
+
+        function showDialog(text) {
+            const dialog = document.getElementById('dialog-box');
+            dialog.innerHTML = text;
+            dialog.style.display = 'block';
+            setTimeout(() => { dialog.style.display = 'none'; }, 4000);
+        }
+
+        function bukaKuiz(soalan, pilihan) {
+            isGameRunning = false; 
+            keys.w = keys.a = keys.s = keys.d = keys.ArrowUp = keys.ArrowDown = keys.ArrowLeft = keys.ArrowRight = false;
+            
+            document.getElementById('quiz-ui').style.display = 'block';
+            document.getElementById('quiz-question').innerText = soalan;
+            
+            const optionsDiv = document.getElementById('quiz-options');
+            optionsDiv.innerHTML = '';
+            document.getElementById('quiz-feedback').innerText = '';
+            document.getElementById('quiz-close').style.display = 'none';
+
+            pilihan.forEach(p => {
+                const btn = document.createElement('button');
+                btn.className = 'quiz-btn';
+                btn.innerText = p.teks;
+                btn.onclick = () => semakJawapan(p.betul);
+                optionsDiv.appendChild(btn);
+            });
+        }
+
+        function semakJawapan(betul) {
+            const feedback = document.getElementById('quiz-feedback');
+            const closeBtn = document.getElementById('quiz-close');
+            const optionsDiv = document.getElementById('quiz-options');
+            
+            if(betul) {
+                if (currentQuiz === 1) {
+                    feedback.innerText = "Tepat sekali! Asteroid biasanya berada di Lingkaran Asteroid. Pintu Sektor 2 dibuka!";
+                    asteroidSelesai = true;
+                    // Buka pintu halangan pertama
+                    door.material.color.setHex(0x00ff00);
+                    door.position.y = -10;
+                    const index = collidableObjects.indexOf(door);
+                    if (index > -1) collidableObjects.splice(index, 1);
+                } else if (currentQuiz === 2) {
+                    feedback.innerText = "Tepat! Komet terbentuk dari ais & gas. Aisnya meruap membentuk ekor bila dekat dengan Matahari.";
+                    kometSelesai = true;
+                } else if (currentQuiz === 3) {
+                    feedback.innerText = "Betul! Di angkasa ia Meteoroid. Masuk atmosfera jadi Meteor. Cecah bumi jadi Meteorit.";
+                    meteoroidSelesai = true;
+                }
+                
+                feedback.style.color = "#00ff00";
+                optionsDiv.innerHTML = ''; // Sembunyikan pilihan jawapan
+                closeBtn.style.display = 'inline-block';
+            } else {
+                if (currentQuiz === 1) feedback.innerText = "Salah. Petunjuk: Ingat kawasan 'lingkaran' di antara Marikh dan Musytari.";
+                else if (currentQuiz === 2) feedback.innerText = "Salah. Petunjuk: Jasad ini sangat sejuk (berais) dan terkenal dengan ekornya yang panjang!";
+                else if (currentQuiz === 3) feedback.innerText = "Salah. Petunjuk: Cari istilah serpihan ketika ia masih di 'ruang angkasa' (perkataan yang berakhir dengan -oid).";
+                
+                feedback.style.color = "#ff3333";
+            }
+        }
+
+        document.getElementById('quiz-close').addEventListener('click', () => {
+            document.getElementById('quiz-ui').style.display = 'none';
+            isGameRunning = true; // Sambung pergerakan pemain
+        });
+
+        // --- SISTEM PERLANGGARAN (AABB) ---
+        function checkCollision(newPos) {
+            const playerBox = new THREE.Box3().setFromCenterAndSize(newPos, new THREE.Vector3(1.5, 3, 1.5));
+            for(let i=0; i<collidableObjects.length; i++) {
+                const wallBox = new THREE.Box3().setFromObject(collidableObjects[i]);
+                if(playerBox.intersectsBox(wallBox)) return true; // Ada perlanggaran
+            }
+            return false;
+        }
+
+        // --- LOOP PERMAINAN ---
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const delta = clock.getDelta();
+            const time = clock.getElapsedTime();
+
+            if (isCinematic) {
+                // --- ANIMASI ENDING DRAMATIK ---
+                // Watak berjalan perlahan ke arah angkasa (paksi Z negatif)
+                player.position.z -= 4 * delta;
+                
+                // Kamera perlahan-lahan naik dan undur ke belakang
+                camera.position.y += 2 * delta;
+                camera.position.z += 1.5 * delta;
+                camera.lookAt(player.position);
+                
+                // Bintang berpusing perlahan
+                starMesh.rotation.z += 0.05 * delta;
+            } else if (isGameRunning) {
+                // Animasi ketiga-tiga objek ujian (Terapung & Putar)
+                interactObj.rotation.y += 1 * delta;
+                interactObj.position.y = 1.5 + Math.sin(time * 2) * 0.2;
+                
+                interactObj2.rotation.y += 1 * delta;
+                interactObj2.position.y = 1.5 + Math.sin(time * 2.5) * 0.2;
+
+                interactObj3.rotation.y += 1 * delta;
+                interactObj3.position.y = 1.5 + Math.sin(time * 1.5) * 0.2;
+
+                // --- PERGERAKAN PEMAIN ---
+                let moveX = 0;
+                let moveZ = 0;
+
+                // Input Papan Kekunci
+                if(keys.w || keys.ArrowUp) moveZ -= 1;
+                if(keys.s || keys.ArrowDown) moveZ += 1;
+                if(keys.a || keys.ArrowLeft) moveX -= 1;
+                if(keys.d || keys.ArrowRight) moveX += 1;
+
+                // Input Joystick (Menggantikan kekunci jika digunakan)
+                if(joystickInput.x !== 0 || joystickInput.y !== 0) {
+                    moveX = joystickInput.x;
+                    moveZ = joystickInput.y;
+                }
+
+                // Arah pergerakan relatif kepada arah kamera (Hanya di paksi Y)
+                if(moveX !== 0 || moveZ !== 0) {
+                    const moveDir = new THREE.Vector3(moveX, 0, moveZ).normalize();
+                    moveDir.applyAxisAngle(new THREE.Vector3(0,1,0), cameraAngleX);
+                    
+                    // Jangka posisi baru
+                    const targetPos = player.position.clone().add(moveDir.multiplyScalar(playerSpeed * delta));
+                    
+                    // Update perlanggaran berasingan untuk paksi X dan Z supaya watak boleh "meluncur" di dinding
+                    const testPosX = player.position.clone(); testPosX.x = targetPos.x;
+                    if(!checkCollision(testPosX)) player.position.x = targetPos.x;
+                    
+                    const testPosZ = player.position.clone(); testPosZ.z = targetPos.z;
+                    if(!checkCollision(testPosZ)) player.position.z = targetPos.z;
+                    
+                    // Pusingkan model pemain menghadap arah pergerakan
+                    const targetRotation = Math.atan2(moveX, moveZ) + cameraAngleX;
+                    player.rotation.y = targetRotation;
+                }
+
+                // --- SISTEM KAMERA KETIGA ---
+                // Kira posisi kamera di belakang pemain
+                const camDistance = 10;
+                const camHeight = 5 + (cameraAngleY * 5); // Ubah ketinggian kamera berdasarkan dongakan
+
+                const offsetX = Math.sin(cameraAngleX) * camDistance;
+                const offsetZ = Math.cos(cameraAngleX) * camDistance;
+
+                const idealCamPos = new THREE.Vector3(
+                    player.position.x + offsetX,
+                    player.position.y + camHeight,
+                    player.position.z + offsetZ
+                );
+
+                // Anti-Tembus Dinding untuk Kamera (Raycasting ringkas)
+                camera.position.lerp(idealCamPos, 0.1); // Pergerakan kamera lancar
+                camera.lookAt(player.position.x, player.position.y + 1, player.position.z);
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // Pengurusan ubah saiz tetingkap
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Mula Loop
+        animate();
+
+    </script>
+</body>
+</html>
